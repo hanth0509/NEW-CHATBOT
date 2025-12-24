@@ -3,3 +3,4 @@ fastapi uvicorn python-multipart scikit-learn
 ollama
 flask flask-cors easyocr pyngrok python-dotenv requests
 sentence-transformers scikit-learn numpy pydantic
+pip install nest_asyncio pyngrok
