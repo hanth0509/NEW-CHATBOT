@@ -1,0 +1,8 @@
+# tạo virtualenv
+python -m venv venv
+
+# kích hoạt:
+venv\Scripts\activate
+
+python create_embeddings.py
+python app.py
