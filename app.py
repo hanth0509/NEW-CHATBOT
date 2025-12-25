@@ -41,8 +41,16 @@ async def chat(req: ChatRequest):
 def process_invoice(req: InvoiceRequest):
     if not req.urls:
         return {"error": "No URLs provided"}
+    
+    # If only one URL, return a single object instead of a list
+    if len(req.urls) == 1:
+        try:
+            return invoice_processor.process_invoice_from_url(req.urls[0])
+        except Exception as e:
+            return {"error": str(e), "url": req.urls[0]}
+    
+    # If multiple URLs, return a list of results
     results = []
-
     for url in req.urls:
         try:
             result = invoice_processor.process_invoice_from_url(url)
@@ -52,9 +60,7 @@ def process_invoice(req: InvoiceRequest):
                 "error": str(e),
                 "url": url
             })
-
     return results
-
 
 # ========== MAIN ==========
 def start_ngrok():

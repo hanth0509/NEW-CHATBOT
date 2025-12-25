@@ -122,6 +122,7 @@ class InvoiceProcessor:
         try:
             text = self.extract_text(path)
             result = self.classify_invoice(text)
+            # Return the dictionary directly without putting it in a list
             return {
                 "invoice_type": result["category"],
                 "total_amount": result["total"]
