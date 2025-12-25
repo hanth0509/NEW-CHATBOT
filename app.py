@@ -39,6 +39,8 @@ async def chat(req: ChatRequest):
 # ========== API INVOICE ==========
 @app.post("/process_invoice")
 def process_invoice(req: InvoiceRequest):
+    if not req.urls:
+        return {"error": "No URLs provided"}
     results = []
 
     for url in req.urls:

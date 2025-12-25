@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, List
 from dotenv import load_dotenv
 import json
-
+import requests
 load_dotenv()
 
 class InvoiceProcessor:
@@ -30,49 +30,88 @@ class InvoiceProcessor:
             return []
 
     def _call_ollama(self, prompt: str) -> str:
-        res = requests.post(
-            self.ollama_url,
-            json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "temperature": 0.1
-            }
-        )
-        return res.json().get("response", "")
+        try:
+            # Sử dụng ollama python client thay vì requests
+            import ollama
+            response = ollama.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                options={"temperature": 0.1}
+            )
+            return response['message']['content']
+        except Exception as e:
+            print(f"❌ Lỗi khi gọi Ollama: {str(e)}")
+            raise   
 
     def extract_text(self, image_path: str) -> str:
         result = self.reader.readtext(image_path)
         return " ".join([r[1] for r in result])
 
     def classify_invoice(self, text: str) -> Dict[str, str]:
-        names = "\n".join(f"- {c['name']}" for c in self.categories)
+        print("Debug - Categories:", self.categories)  
+        if not self.categories:
+            return {"category": "Uncategorized", "total": "0"}
+
+        category_names = [c["name"] for c in self.categories]
+        categories_list = "\n".join(f"- {name}" for name in category_names)
 
         prompt = f"""
-Classify invoice and extract total.
+    You are an invoice analysis expert specialized in Vietnamese invoices.
 
-Categories:
-{names}
+    Your tasks:
+    1. Classify the invoice into ONE category from the list below.
+    - Respond with the category name only.
+    - Choose the most relevant category.
 
-Invoice:
-{text[:2000]}
+    2. Extract the FINAL TOTAL amount that the customer has to pay.
+    - This is usually labeled in Vietnamese as:
+        "Tổng cộng", "Tổng tiền", "Thành tiền", "Tổng thanh toán",
+        "Cộng tiền", "Số tiền phải trả".
+    - If multiple amounts appear, choose the LARGEST and FINAL amount.
+    - Ignore VAT-only amounts, unit prices, discounts, and cash given by customer.
+    - Respond with numbers only (digits).
+    - Do NOT include currency symbols like VND, ₫, đ.
+    - Do NOT include separators like commas or dots.
 
-Respond JSON only:
-{{"category":"...", "total":"..."}}
-"""
+    Categories:
+    {categories_list}
+
+    Invoice content (Vietnamese OCR text):
+    {text[:2000]}
+
+    IMPORTANT RULES:
+    - Respond ONLY with valid JSON
+    - Do NOT explain your reasoning
+    - Do NOT add any text outside the JSON
+    - Do NOT use markdown
+
+    JSON format:
+    {{
+    "category": "category_name",
+    "total": "amount"
+    }}
+    """
+
 
         try:
-            result = self._call_ollama(prompt)
+            result = self._call_ollama(prompt).strip()
             data = json.loads(result)
             return {
-            "category": data.get("category", "Unknown"),
-            "total": data.get("total", "0")
-        }
-        except:
+                "category": data.get("category", "Unknown"),
+                "total": data.get("total", "0")
+            }
+        except requests.exceptions.Timeout:
+            print("❌ Ollama API request timed out")
+            return {"category": "Unknown", "total": "0"}
+        except Exception as e:
+            print("❌ Error processing invoice:", e)
+            if 'result' in locals():
+                print("Raw response:", result)
             return {"category": "Unknown", "total": "0"}
 
+
     def process_invoice_from_url(self, url: str) -> Dict[str, str]:
-        res = requests.get(url)
+        res = requests.get(url) 
         if res.status_code != 200:
             return {"error": "Download failed"}
 

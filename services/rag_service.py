@@ -46,8 +46,7 @@ def generate_response(user_message: str, context: List[str]) -> str:
     context_text = "\n".join(f"- {c}" for c in context)
 
     prompt = f"""
-Based on the following transaction information, answer the question.
-
+Based on the following transaction information, please answer the user's question concisely and clearly.
 Transaction Information:
 {context_text}
 
